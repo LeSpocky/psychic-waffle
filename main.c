@@ -11,12 +11,17 @@
 
 #define DEFAULT_TIMEOUT 30
 
-static bool m_signal_received = false;
+static bool m_sigterm_received = false;
 
-void sig_handler( int sig )
+void handler_sigkill( int sig )
 {
-    printf( "Received signal %d ...\n", sig );
-    m_signal_received = true;
+    printf( "Received SIGKILL (%d) ...\n", sig );
+}
+
+void handler_sigterm( int sig )
+{
+    printf( "Received SIGTERM (%d) ...\n", sig );
+    m_sigterm_received = true;
 }
 
 int main( int argc, char *argv[] )
@@ -27,15 +32,28 @@ int main( int argc, char *argv[] )
 
     /*  install signal handlers */
     memset( &act, 0, sizeof(act) );
+    act.sa_handler = handler_sigkill;
+    ec = sigaction( SIGKILL, &act, NULL );
+    if ( ec != 0 )
+    {
+        fprintf( stderr, "Could not install SIGKILL handler: %s\n",
+                 strerror(errno) );
+    }
+    else
+    {
+        printf( "Installed SIGKILL handler ...\n" );
+    }
 
-    act.sa_handler = sig_handler;
+    memset( &act, 0, sizeof(act) );
+    act.sa_handler = handler_sigterm;
     ec = sigaction( SIGTERM, &act, NULL );
     if ( ec != 0 )
     {
-        fprintf( stderr, "Could not install signal handler: %s\n", strerror(errno) );
+        fprintf( stderr, "Could not install SIGTERM handler: %s\n",
+                 strerror(errno) );
         return EXIT_FAILURE;
     }
-    printf( "Installed signal handler ...\n" );
+    printf( "Installed SIGTERM handler ...\n" );
 
     /*  report useful information   */
     printf( "My PID is %u ...\n", getpid() );
@@ -54,7 +72,7 @@ int main( int argc, char *argv[] )
         printf( "Sleep interrupted, %u seconds left ...\n", time_left );
     }
 
-    if ( m_signal_received )
+    if ( m_sigterm_received )
     {
         printf( "Sleeping for another %u seconds ...\n", timeout );
         time_left = sleep( timeout );
